@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.Mathematics;
+using Unity.Burst;
 using System.Collections.Generic;
 using Unity.Collections;
 using FuwaFuwa.Math;
@@ -21,6 +22,7 @@ namespace FuwaFuwa
 		public int PackedSecondBoneIndex;
 	}
 
+	[BurstCompile]
 	public static class ConstraintLibrary
 	{
 		public static void InsertLeafBone(List<Bone> chain)
@@ -81,7 +83,7 @@ namespace FuwaFuwa
 			}
 		}
 
-		public static void ConstraintVerticalStructure(ref DynamicBoneSolver solver, ref SimulationContext context, ref PhysicsSettings physicsSettings)
+		public static void ConstrainVerticalStructure(ref DynamicBoneSolver solver, ref SimulationContext context, ref PhysicsSettings physicsSettings)
 		{
 			float4 sqrDeltaTime = context.DeltaTime * context.DeltaTime;
 			float4 inverseMass = SMathConstans.TwoReal;
@@ -98,33 +100,39 @@ namespace FuwaFuwa
 
 					// アニメーションポーズのボーンを計算
 					SVector3 animPosePosition = solver.AnimPositions[boneIndex];
-					SVector3 NextAnimPosePosition = solver.AnimPositions[nextBoneIndex];
-					SVector3 NeighbouringAnimPosition = SMathLibrary.Shuffle(animPosePosition, NextAnimPosePosition, RegisterComponent.LeftY, RegisterComponent.LeftZ, RegisterComponent.LeftW, RegisterComponent.RightX);
-					SVector3 animBone = NeighbouringAnimPosition - animPosePosition;
+					SVector3 nextAnimPosePosition = solver.AnimPositions[nextBoneIndex];
+					SVector3 neighbouringAnimPosition = SMathLibrary.Shuffle(animPosePosition, nextAnimPosePosition, RegisterComponent.LeftY, RegisterComponent.LeftZ, RegisterComponent.LeftW, RegisterComponent.RightX);
+					SVector3 animBone = neighbouringAnimPosition - animPosePosition;
 
 					// シミュレーション中のボーンを計算
 					SVector3 simPosition = solver.SimPositions[boneIndex];
 					SVector3 nextSimPosition = solver.SimPositions[nextBoneIndex];
-					SVector3 NeighbouringSimPosition = SMathLibrary.Shuffle(simPosition, nextSimPosition, RegisterComponent.LeftY, RegisterComponent.LeftZ, RegisterComponent.LeftW, RegisterComponent.RightX);
-					SVector3 simBone = NeighbouringSimPosition - simPosition;
+					SVector3 neighbouringSimPosition = SMathLibrary.Shuffle(simPosition, nextSimPosition, RegisterComponent.LeftY, RegisterComponent.LeftZ, RegisterComponent.LeftW, RegisterComponent.RightX);
+					SVector3 simBone = neighbouringSimPosition - simPosition;
 
 					// アニメーションポーズのボーンを基準にどれだけ伸びているのかを求める
 					float4 animBoneLength = SVector3.Magnitude(animBone);
 					float4 simBoneLength = SVector3.Magnitude(simBone);
-					float4 constraint = math.max(simBoneLength - (animBoneLength), SMathConstans.ZeroReal);
-					constraint = SMathLibrary.PartialSum(constraint);
 
 					float4 lambda = solver.VerticalStructureLambdas[boneIndex];
 					float4 deltaLambda = ComputeDeltaLambda(simBoneLength, animBoneLength, inverseMass, compliance, lambda, sqrDeltaTime);
 					solver.VerticalStructureLambdas[boneIndex] += deltaLambda;
+					SVector3 constraint = deltaLambda * SVector3.Normalize(simBone);
 
 					// 伸びた分を戻す
 					float4 fixedMask = new float4(solver.FixedMasks[boneIndex].yzw, solver.FixedMasks[nextBoneIndex].x);
-					//SVector3 ConstraintedSimPos = NeighbouringSimPosition - (constraint * SVector3.Normalize(simBone));
-					SVector3 ConstraintedSimPos = NeighbouringSimPosition - (deltaLambda * SVector3.Normalize(simBone));
-
+					SVector3 ConstraintedSimPos = neighbouringSimPosition - constraint;
 					solver.SimPositions[boneIndex] = SMathLibrary.Shuffle(simPosition, ConstraintedSimPos, RegisterComponent.LeftX, RegisterComponent.RightX, RegisterComponent.RightY, RegisterComponent.RightZ) * fixedMask;
 					solver.SimPositions[nextBoneIndex] = SMathLibrary.Shuffle(ConstraintedSimPos, nextSimPosition, RegisterComponent.LeftW, RegisterComponent.RightY, RegisterComponent.RightZ, RegisterComponent.RightW) * fixedMask;
+
+					// 前フレームの座標も同じだけ移動し、ベルレ積分で不要な速度を計算しないようにする
+					// これを行わない場合、制約による位置変化の方向に加速して物理の暴れにつながる可能性がある
+					SVector3 prevSimPosition = solver.PrevSimPositions[boneIndex];
+					SVector3 prevNextSimPosition = solver.PrevSimPositions[nextBoneIndex];
+					SVector3 prevNeighbouringSimPosition = SMathLibrary.Shuffle(prevSimPosition, prevNextSimPosition, RegisterComponent.LeftY, RegisterComponent.LeftZ, RegisterComponent.LeftW, RegisterComponent.RightX);
+					SVector3 prevConstraintedSimPos = neighbouringSimPosition - constraint;
+					solver.PrevSimPositions[boneIndex] = SMathLibrary.Shuffle(prevSimPosition, prevConstraintedSimPos, RegisterComponent.LeftX, RegisterComponent.RightX, RegisterComponent.RightY, RegisterComponent.RightZ) * fixedMask;
+					solver.PrevSimPositions[nextBoneIndex] = SMathLibrary.Shuffle(prevConstraintedSimPos, prevNextSimPosition, RegisterComponent.LeftW, RegisterComponent.RightY, RegisterComponent.RightZ, RegisterComponent.RightW) * fixedMask;
 				}
 
 				chainBeginIndex += verticalStructure.PackedBoneCount;

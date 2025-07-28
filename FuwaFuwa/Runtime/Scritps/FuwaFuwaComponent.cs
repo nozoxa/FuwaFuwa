@@ -29,7 +29,6 @@ namespace FuwaFuwa
 		Rubber,
 		Muscle,
 		Fat,
-		Max,
 	};
 
 	[Serializable]
@@ -61,14 +60,11 @@ namespace FuwaFuwa
 		[SerializeField]
 		private AnimationClip _animClip;
 
-		private NativeArray<VerticalStructure> _verticalStructures;
-		private NativeArray<Vector3> _bonePositions;
-
 		private DynamicBoneSolver _solver;
 		private PlayableGraph _graph;
 
 		// https://blog.mmacklin.com/2016/10/12/xpbd-slides-and-stiffness/
-		public static readonly float[] Compliance = new float[(int)ComplianceType.Max]
+		public static readonly float[] Compliance = new float[(int)ComplianceType.Fat + 1]
 		{
 			0.00000000004f,
 			0.00000000016f,
@@ -79,23 +75,18 @@ namespace FuwaFuwa
 			0.0001f,
 		};
 
-		private float _time = 0.0f;
-		private Vector3 _initialPos;
-
 		private void Initialize()
 		{
-			_initialPos = gameObject.transform.localPosition;
+			Application.targetFrameRate = 60;
 
-			Application.targetFrameRate = 30;
-
-			// ï¿½\ï¿½ï¿½ï¿½oï¿½[ï¿½Ìï¿½ï¿½ï¿½
+			// ƒ\ƒ‹ƒo[‚Ì¶¬
 			Animator animator = GetComponent<Animator>();
 			SolverLibrary.InitializeSolver(ref _solver, _chainSettings, _physicsSettings, animator);
 
-			// GameObjectï¿½ï¿½Ê‚ï¿½ï¿½Äƒ{ï¿½[ï¿½ï¿½ï¿½ğ“®‚ï¿½ï¿½ï¿½ï¿½È‚ï¿½ï¿½ï¿½ï¿½ßíœ
+			// GameObject‚ğ’Ê‚¶‚Äƒ{[ƒ“‚ğ“®‚©‚³‚È‚¢‚½‚ßíœ
 			AnimatorUtility.OptimizeTransformHierarchy(gameObject, null);
 
-			// ï¿½Vï¿½~ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PlayableAPIï¿½Åï¿½ï¿½s
+			// ƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚ÍPlayableAPI‚ÅÀs
 			_graph = PlayableGraph.Create("FuwaFuwa Job");
 			_graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
 			FuwaFuwaJob job = new FuwaFuwaJob
@@ -107,7 +98,7 @@ namespace FuwaFuwa
 
 			AnimationScriptPlayable scriptPlayable = AnimationScriptPlayable.Create(_graph, job, 1);
 
-			// ï¿½Aï¿½jï¿½ï¿½ï¿½[ï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½vï¿½Ìƒmï¿½[ï¿½hï¿½ï¿½Ú‘ï¿½
+			// ƒAƒjƒ[ƒVƒ‡ƒ“ƒNƒŠƒbƒv‚Ìƒm[ƒh‚ğÚ‘±
 			if (_animClip != null)
 			{
 				AnimationClipPlayable animClipPlayable = AnimationClipPlayable.Create(_graph, _animClip);
@@ -132,9 +123,6 @@ namespace FuwaFuwa
 
 		void Update()
 		{
-			float sin = Mathf.Sin(_time) * 0.5f;
-			gameObject.transform.localPosition = _initialPos + new Vector3(1.0f, 0.0f, 0.0f) * sin;
-			_time += Time.deltaTime;
 		}
 
 		private void OnDestroy()
@@ -143,7 +131,7 @@ namespace FuwaFuwa
 		}
 	}
 
-	[BurstCompile]
+	//[BurstCompile]
 	public struct FuwaFuwaJob : IAnimationJob
 	{
 		public float DeltaTime;
@@ -156,8 +144,6 @@ namespace FuwaFuwa
 			SolverLibrary.UpdateSimulationContext(in Solver, ref SimulationContext, stream);
 
 			SolverLibrary.UpdateAnimationPose(ref Solver, stream);
-
-			SolverLibrary.UpdateFixedPositions(ref Solver, stream);
 
 			if (SimulationContext.IsFirstUpdate)
 			{
@@ -174,8 +160,10 @@ namespace FuwaFuwa
 
 			for (int i = 0; i < PhysicsSettings.SolverIterations; ++i)
 			{
-				ConstraintLibrary.ConstraintVerticalStructure(ref Solver, ref SimulationContext, ref PhysicsSettings);
+				ConstraintLibrary.ConstrainVerticalStructure(ref Solver, ref SimulationContext, ref PhysicsSettings);
 			}
+
+			SolverLibrary.UpdateFixedPositions(ref Solver, stream);
 
 			SolverLibrary.ApplySimulationResult(in Solver, stream);
 		}

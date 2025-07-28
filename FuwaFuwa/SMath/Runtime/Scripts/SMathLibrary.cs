@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.Mathematics;
+using Unity.Burst;
 using System.Runtime.CompilerServices;
 
 
@@ -31,6 +32,7 @@ namespace FuwaFuwa.Math
 		RightW
 	};
 
+	[BurstCompile]
 	public static class SMathLibrary
 	{
 		// num ‚ğ mutiple(”{”) ‚ÉØ‚èã‚°‚é
