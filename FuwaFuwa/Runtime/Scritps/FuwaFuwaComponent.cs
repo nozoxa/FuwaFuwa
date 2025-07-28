@@ -88,14 +88,14 @@ namespace FuwaFuwa
 
 			Application.targetFrameRate = 30;
 
-			// ƒ\ƒ‹ƒo[‚Ì¶¬
+			// ï¿½\ï¿½ï¿½ï¿½oï¿½[ï¿½Ìï¿½ï¿½ï¿½
 			Animator animator = GetComponent<Animator>();
 			SolverLibrary.InitializeSolver(ref _solver, _chainSettings, _physicsSettings, animator);
 
-			// GameObject‚ğ’Ê‚¶‚Äƒ{[ƒ“‚ğ“®‚©‚³‚È‚¢‚½‚ßíœ
+			// GameObjectï¿½ï¿½Ê‚ï¿½ï¿½Äƒ{ï¿½[ï¿½ï¿½ï¿½ğ“®‚ï¿½ï¿½ï¿½ï¿½È‚ï¿½ï¿½ï¿½ï¿½ßíœ
 			AnimatorUtility.OptimizeTransformHierarchy(gameObject, null);
 
-			// ƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚ÍPlayableAPI‚ÅÀs
+			// ï¿½Vï¿½~ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PlayableAPIï¿½Åï¿½ï¿½s
 			_graph = PlayableGraph.Create("FuwaFuwa Job");
 			_graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
 			FuwaFuwaJob job = new FuwaFuwaJob
@@ -107,7 +107,7 @@ namespace FuwaFuwa
 
 			AnimationScriptPlayable scriptPlayable = AnimationScriptPlayable.Create(_graph, job, 1);
 
-			// ƒAƒjƒ[ƒVƒ‡ƒ“ƒNƒŠƒbƒv‚Ìƒm[ƒh‚ğÚ‘±
+			// ï¿½Aï¿½jï¿½ï¿½ï¿½[ï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½vï¿½Ìƒmï¿½[ï¿½hï¿½ï¿½Ú‘ï¿½
 			if (_animClip != null)
 			{
 				AnimationClipPlayable animClipPlayable = AnimationClipPlayable.Create(_graph, _animClip);
@@ -133,8 +133,7 @@ namespace FuwaFuwa
 		void Update()
 		{
 			float sin = Mathf.Sin(_time) * 0.5f;
-			//gameObject.transform.localPosition = _initialPos + new Vector3(1.0f, 0.0f, 0.0f) * sin;
-			gameObject.transform.localRotation *= Quaternion.AngleAxis(30.0f * Time.deltaTime, Vector3.up);
+			gameObject.transform.localPosition = _initialPos + new Vector3(1.0f, 0.0f, 0.0f) * sin;
 			_time += Time.deltaTime;
 		}
 
